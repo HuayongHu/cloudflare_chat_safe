@@ -11,8 +11,9 @@ export default {
         const apiResponse = await fetch('https://api.cloudflare.com/client/v4/accounts/c999ea1c681f2365538b342d64bccbe2/ai/run/@cf/qwen/qwen1.5-14b-chat-awq', {
           method: 'POST',
           headers: {
-            'Authorization': 'Bearer ZKt1bFhGDQ9vwtsX7Hr6KDl1sTHpbadZW3EEoEPp',
-            'Content-Type': 'application/json'
+                        'Authorization': 'Bearer ZKt1bFhGDQ9vwtsX7Hr6KDl1sTHpbadZW3EEoEPp',
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
           },
           body: JSON.stringify(payload)
         });
