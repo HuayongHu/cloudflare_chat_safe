@@ -1,0 +1,2 @@
+# cloudflare_chat_safe
+利用Cloudflare的workers功能实现对话机器人（密钥不写入前端）
