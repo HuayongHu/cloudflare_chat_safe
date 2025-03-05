@@ -126,7 +126,7 @@
             apiMessage.classList.add('chat-message', 'api-message');
             apiMessage.textContent = '您好，我是您的智能学习助手，很高兴为您服务。您有什么需要帮助的嘛？';
             chatContainer.appendChild(apiMessage);
-            conversationHistory.push({ role: 'system', content: '从现在开始你是智能学习助手，帮助用户解决问题。' });
+            conversationHistory.push({ role: 'system', content: '你是专业的ai大模型，拥有丰富的知识储备。' });
         };
 
         function updateLoadingMessage(message, delay = 0) {
