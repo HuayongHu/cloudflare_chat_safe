@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta name='description' content='通义千问,chat-GPT,Google,llama,大模型,API,Cloudflare,cors,CORS,Cors anywhere,大模型,聊天机器人'>
+    <title>智能助手</title>
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+        }
+        body {
+            display: flex;
+            flex-direction: column;
+        }
+        .container {
+            flex: 1;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            background-color: #fff;
+            overflow-y: auto;
+        }
+        .chat-container {
+            border: 1px solid #e5e7eb;
+            padding: 10px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+        .chat-message {
+            margin-bottom: 10px;
+            padding: 8px;
+            border-radius: 4px;
+            word-wrap: break-word;
+        }
+        .user-message {
+            text-align: right;
+            color: #333;
+            background-color: #f3f4f6;
+        }
+        .api-message {
+            color: #333;
+            background-color: #ebebeb;
+        }
+        .thinking-message {
+            color: #666;
+            font-size: 0.9em;
+            margin-top: 5px;
+            padding: 8px;
+            background-color: #f8f8f8;
+            border-radius: 8px;
+        }
+        .loading-message {
+            text-align: center;
+            color: #9E9E9E;
+        }
+        .input-container {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            background-color: #fff;
+            border-top: 1px solid #e5e7eb;
+        }
+        .footer {
+            padding: 3px;
+            background-color: #fff;
+            border-top: 1px solid #e5e7e8;
+            text-align: center;
+            font-size: 13px;
+            color: #9E9E9E;
+        }
+        input[type=text] {
+            flex: 1;
+            font-size: 16px;
+            padding: 10px;
+            margin-right: 10px;
+            border-radius: 4px;
+            border: 1px solid #E0E0E0;
+            box-sizing: border-box;
+        }
+        button {
+            font-size: 16px;
+            padding: 10px;
+            border-radius: 4px;
+            border: none;
+            background-color: #333;
+            color: #fff;
+            cursor: pointer;
+            transition: box-shadow 0.3s ease;
+        }
+        button:hover {
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        button:active {
+            transform: scale(0.95);
+        }
+        @media screen and (max-width: 600px) {
+            .container {
+                padding: 10px;
+            }
+        }
+    </style>
+    <script src="./marked.min.js"></script>
+</head>
+<body>
+    <div class="container" id="chatContainer">
+        <!-- 对话内容会动态插入到这里 -->
+    </div>
+    <div class="input-container">
+        <input type="text" id="userInput" placeholder="请输入您想问的...">
+        <button onclick="sendRequest()">发送</button>
+    </div>
+    <div class="footer">
+        <!-- 不蒜子统计 -->
+        <script async src="./busuanzi.pure.mini.js"></script>
+        <center>
+            以上内容均由AI生成&nbsp ©2024&nbsp All rights reserved
+            &nbsp共<span id="busuanzi_value_page_pv" size="1"><i class="fa fa-spinner fa-spin"></i></span>次访问
+        </center>
+    </div>
+    <!-- 添加MathJax数学公式支持 -->
+    <script>
+    MathJax = {
+        tex: {
+            inlineMath: [['$', '$'], ['\\(', '\\)']],
+            displayMath: [['$$', '$$'], ['\\[', '\\]']],
+            processEscapes: true
+        },
+        options: {
+            skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre']
+        }
+    };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+
+    <script src="./axios.min.js"></script>
+    <script>
+        // 配置marked解析器
+        marked.setOptions({
+            breaks: true,
+            sanitize: false,  // 禁用HTML过滤以支持数学公式
+            highlight: function(code) {
+                return hljs.highlightAuto(code).value;
+            }
+        });
+        const chatContainer = document.getElementById('chatContainer');
+        const userInput = document.getElementById('userInput');
+        let timer;
+
+        // 用于保存对话上下文
+        let conversationHistory = [];
+
+        window.onload = function() {
+            const apiMessage = document.createElement('div');
+            apiMessage.classList.add('chat-message', 'api-message');
+            apiMessage.textContent = '您好，我是您的智能学习助手，很高兴为您服务。您有什么需要帮助的嘛？';
+            chatContainer.appendChild(apiMessage);
+            conversationHistory.push({ role: 'system', content: '你是专业的ai大模型，拥有丰富的知识储备。' });
+        };
+
+        function updateLoadingMessage(message, delay = 0) {
+            setTimeout(() => {
+                const loadingMessage = document.querySelector('.loading-message');
+                if (loadingMessage) {
+                    loadingMessage.textContent = message;
+                }
+            }, delay);
+        }
+
+        async function sendRequest() {
+            const inputText = userInput.value;
+            if (!inputText.trim()) return; // 防止发送空消息
+
+            // 添加用户消息到对话上下文
+            conversationHistory.push({ role: 'user', content: inputText });
+
+            const userMessage = document.createElement('div');
+            userMessage.classList.add('chat-message', 'user-message');
+            userMessage.textContent = inputText;
+            chatContainer.appendChild(userMessage);
+
+            userInput.value = '';
+
+            const loadingMessage = document.createElement('div');
+            loadingMessage.classList.add('chat-message', 'loading-message');
+            chatContainer.appendChild(loadingMessage);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+
+            updateLoadingMessage('正在组织语言中...', 0);
+            setTimeout(() => {
+                updateLoadingMessage('正在回复中...', 1000);
+                let secondsRemaining = Math.floor(Math.random() * 6) + 5; // 生成 5 到 10 的随机数
+                const countdownInterval = setInterval(() => {
+                    if (secondsRemaining <= 0) {
+                        clearInterval(countdownInterval);
+                        updateLoadingMessage('机器人正在努力组织语言回复中，请再稍等几秒...');
+                    } else {
+                        updateLoadingMessage(`预计还需要${secondsRemaining}秒`);
+                        secondsRemaining--;
+                    }
+                }, 1000);
+            }, 2000);
+
+            const payload = {
+                messages: conversationHistory
+            };
+
+            try {
+                const response = await axios.post('https://chatapi.011102.xyz/', payload, {
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (response.data.success) {
+                    chatContainer.removeChild(loadingMessage);
+                    // 修改此处：添加公式渲染逻辑
+                    const apiMessage = document.createElement('div');
+                    apiMessage.classList.add('chat-message', 'api-message');
+                    apiMessage.innerHTML = marked.parse(finalResponse);
+                    chatContainer.appendChild(apiMessage);
+
+                    // 添加数学公式渲染
+                    MathJax.typesetPromise([apiMessage]).then(() => {
+                        chatContainer.scrollTop = chatContainer.scrollHeight;
+                    }).catch((err) => console.log('MathJax渲染错误:', err));
+                    // 获取思考过程内容
+                    const responseText = response.data.result.response;
+                    const thinkMatch = responseText.match(/<think>([\s\S]*?)<\/think>/);
+                    const thinkContent = thinkMatch ? thinkMatch[1].trim() : '';
+                    const finalResponse = responseText.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+
+                    // 如果有思考过程，先显示思考过程
+                    if (thinkContent) {
+                        const thinkingMessage = document.createElement('div');
+                        thinkingMessage.classList.add('thinking-message');
+                        thinkingMessage.textContent = `💡 思考过程：${thinkContent}`;
+                        chatContainer.appendChild(thinkingMessage);
+                    }
+
+                    // 显示最终的回答
+                    const apiMessage = document.createElement('div');
+                    apiMessage.classList.add('chat-message', 'api-message');
+                    apiMessage.innerHTML = marked.parse(finalResponse);
+                    chatContainer.appendChild(apiMessage);
+
+                    // 添加 AI 消息到对话上下文
+                    conversationHistory.push({ role: 'system', content: finalResponse });
+
+                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                } else {
+                    chatContainer.removeChild(loadingMessage);
+                    alert('API 调用失败');
+                }
+            } catch (error) {
+                chatContainer.removeChild(loadingMessage);
+                console.error('请求失败:', error);
+                alert('请求失败，请查看控制台错误信息');
+            }
+        }
+
+        userInput.addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault(); // 阻止默认的表单提交行为
+                sendRequest(); // 调用发送请求的函数
+            }
+        });
+    </script>
+</body>
+</html>
